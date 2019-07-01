@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<head>
+    <meta charset="utf-8">
+    <script src="hash.js"></script>
+    <script src="jquery-1.9.0.min.js"></script>
+    <script>
+        $(function(){$("body").html("<div id='fileinput'></div><div id='fileinfo'></div>");$("#fileinput").html("<input id='fileupload' type='file' name='file' onchange='ufload(this)'/><br/><br/>");});
+        function ufload(obj) {
+            var bucketname="mrbzimage"; //服务名
+            var username="meiribizhong";	  //操作员账号
+            var password="meiribizhong@2019";     //操作员密码
+            var ontime=new Date();
+            var datename=ontime.getFullYear()+"/"+ontime.getMonth()+"/"+ontime.getDay();
+            var save_key="/ICON/"+datename+"/{filename}"+new Date().getTime()+"{.suffix}";
+            var url="http://v0.api.upyun.com/"+bucketname;
+            var file=$(obj).get(0).files[0];
+            var fileinfo=document.getElementById("fileinfo");
+            var policy=btoa(JSON.stringify({"bucket": bucketname, "save-key": save_key, "expiration": parseInt(Date.parse(new Date())+3600),}));
+            var signature="UPYUN "+username+":"+b64hamcsha1(HexMD5.MD5(password).toString(HexMD5.enc.Hex), "POST&/"+bucketname+"&"+policy);
+            fileinfo.innerHTML="文件名称: "+file.name+"<br/>"+"文件大小: "+file.size+"<br/>"+"文件类型: "+file.type+"<br/><br/>"+
+                "<div id='progress' style='width:300px;height:14px;border:1px solid #ddd;padding-top:0px;border-radius:4px;display:none'><div id='bar' style='float:left;background-color:#62BFFF; width:0%; height:14px; border-radius:3px;'></div><div id='percent' style='float:left;width:0px;display:inline-block; top:0px;font-size:10px;'></div>";
+            var xhrOnProgress=function(fun){
+                xhrOnProgress.onprogress=fun;
+                return function(){
+                    var xhr=$.ajaxSettings.xhr();
+                    if (typeof xhrOnProgress.onprogress!=='function'){
+                        return xhr;
+                    }
+                    if (xhrOnProgress.onprogress&&xhr.upload){
+                        xhr.upload.onprogress=xhrOnProgress.onprogress;
+                    }
+                    return xhr;
+                }
+            }
+            var formData=new FormData();
+            var index1 = file.name.lastIndexOf(".");
+            var index2 = file.name.length;
+            var suffix = file.name.substring(index1 + 1, index2);//鍚庣紑鍚?
+            formData.append("file",file);
+            formData.append("policy",policy);
+            formData.append("authorization",signature);
+            $.ajax({
+                url:url,
+                type:"POST",
+                data:formData,
+                contentType:false,
+                processData:false,
+                xhr:xhrOnProgress(function(e){
+                    var percent=Math.round(e.loaded*100/e.total);
+                    $("#progress").show();
+                    $("#percent").text(percent+"%");
+                    $("#bar").width(percent+'%');
+                }),
+                success:function(data, textStatus,xhr){
+                    $("#progress").hide();
+                    fileinfo.innerHTML+="上传成功!<br/><br/>";
+                    for (var key in JSON.parse(data)){
+                        fileinfo.innerHTML+=key+": "+JSON.parse(data)[key]+"<br/>";
+                    }
+                    fileinfo.innerHTML+="又拍云图片路径：http://mrbzimage.test.upcdn.net"+JSON.parse(data).url;
+
+                },
+                error:function(xhr){
+                    $("#progress").hide();
+                    fileinfo.innerHTML+="上传失败!<br/><br/>";
+                    for (var key in JSON.parse(xhr.responseText)){
+                        fileinfo.innerHTML+=key+": "+JSON.parse(xhr.responseText)[key]+"<br/>";
+                    }
+                }
+            });
+        }
+    </script>
+</head>
+<body></body>
+</html>
